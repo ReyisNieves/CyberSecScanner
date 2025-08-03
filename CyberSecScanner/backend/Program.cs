@@ -15,7 +15,7 @@ Log.Logger = new LoggerConfiguration()
 builder.Services.AddSerilog();
 
 // Add MediatR
-builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));
+builder.Services.AddMediatR(Assembly.GetExecutingAssembly());
 
 // Add services
 builder.Services.AddSingleton<ISystemMetricsService, SystemMetricsService>();
@@ -51,8 +51,41 @@ app.MapGet("/health", () => new { status = "healthy", timestamp = DateTime.UtcNo
 
 try
 {
-    Log.Information("Starting CyberSecScanner Backend on port 5000");
-    app.Run("http://localhost:5000");
+    // Check if port is specified via command line arguments
+    var port = "5000";
+    var url = $"http://localhost:{port}";
+    
+    if (args.Length > 0)
+    {
+        // Handle both formats: --urls=value and --urls value
+        if (args[0].StartsWith("--urls="))
+        {
+            // Format: --urls=http://localhost:5001
+            var urlsArg = args[0].Split('=')[1].Trim('"');
+            url = urlsArg;
+            
+            // Extract port for logging
+            if (urlsArg.Contains(':'))
+            {
+                port = urlsArg.Split(':').Last();
+            }
+        }
+        else if (args[0] == "--urls" && args.Length > 1)
+        {
+            // Format: --urls http://localhost:5001
+            var urlsArg = args[1].Trim('"');
+            url = urlsArg;
+            
+            // Extract port for logging
+            if (urlsArg.Contains(':'))
+            {
+                port = urlsArg.Split(':').Last();
+            }
+        }
+    }
+    
+    Log.Information("Starting CyberSecScanner Backend on port {Port}", port);
+    app.Run(url);
 }
 catch (Exception ex)
 {
