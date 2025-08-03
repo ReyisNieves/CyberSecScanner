@@ -10,8 +10,8 @@ echo "========================================"
 
 # Define paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACKEND_DIR="$SCRIPT_DIR/backend"
-FRONTEND_DIR="$SCRIPT_DIR/frontend"
+BACKEND_DIR="$SCRIPT_DIR/CyberSecScanner/backend"
+FRONTEND_DIR="$SCRIPT_DIR/CyberSecScanner/frontend"
 
 # Function to check if a command exists
 command_exists() {
@@ -22,7 +22,6 @@ command_exists() {
 check_port() {
     local port=$1
     if lsof -i :$port >/dev/null 2>&1; then
-        echo "⚠️  Port $port is already in use"
         return 1
     fi
     return 0
@@ -34,20 +33,20 @@ find_available_port() {
     local end_port=$2
     local max_attempts=${3:-10}
     
-    echo "🔍 Searching for available port in range $start_port-$end_port..."
+    echo "🔍 Searching for available port in range $start_port-$end_port..." >&2
     
     for ((port=$start_port; port<=$end_port && port<=$((start_port + max_attempts - 1)); port++)); do
-        echo "   🔎 Checking port $port..."
+        echo "   🔎 Checking port $port..." >&2
         if check_port $port; then
-            echo "   ✅ Port $port is available!"
+            echo "   ✅ Port $port is available!" >&2
             echo $port
             return 0
         else
-            echo "   ❌ Port $port is in use"
+            echo "   ❌ Port $port is in use" >&2
         fi
     done
     
-    echo "   ⚠️  No available ports found in range $start_port-$((start_port + max_attempts - 1))"
+    echo "   ⚠️  No available ports found in range $start_port-$((start_port + max_attempts - 1))" >&2
     return 1
 }
 
@@ -168,11 +167,10 @@ if [ "$FRONTEND_UPDATE_NEEDED" = true ]; then
     cd "$FRONTEND_DIR"
     
     # Create temporary config file for API base URL
-    echo "window.API_BASE_URL = 'http://localhost:$BACKEND_PORT';" > api-config.js
+    echo "{\"apiPort\": $BACKEND_PORT}" > config.json
     
     # Update the HTML file to include the config
-    if ! grep -q "api-config.js" index.html; then
-        sed -i.bak 's|</head>|    <script src="api-config.js"></script>\n</head>|' index.html
+    if ! grep -q "config.json" index.html; then
         echo "   ✅ Frontend configured for backend port $BACKEND_PORT"
     fi
     
@@ -198,7 +196,7 @@ cleanup() {
     if [ "$FRONTEND_UPDATE_NEEDED" = true ]; then
         echo "🔧 Cleaning up temporary frontend configuration..."
         cd "$FRONTEND_DIR"
-        rm -f api-config.js
+        rm -f config.json
         if [ -f index.html.bak ]; then
             mv index.html.bak index.html
             echo "   ✅ Frontend configuration restored"

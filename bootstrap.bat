@@ -9,8 +9,8 @@ echo ========================================
 
 REM Define paths
 set "SCRIPT_DIR=%~dp0"
-set "BACKEND_DIR=%SCRIPT_DIR%backend"
-set "FRONTEND_DIR=%SCRIPT_DIR%frontend"
+set "BACKEND_DIR=%SCRIPT_DIR%CyberSecScanner\backend"
+set "FRONTEND_DIR=%SCRIPT_DIR%CyberSecScanner\frontend"
 
 REM Function to check if a command exists
 where dotnet >nul 2>nul
@@ -103,7 +103,7 @@ if "%FRONTEND_UPDATE_NEEDED%"=="true" (
     cd /d "%FRONTEND_DIR%"
     
     REM Create temporary config file for API base URL
-    echo window.API_BASE_URL = 'http://localhost:%BACKEND_PORT%'; > api-config.js
+    echo {"apiPort": %BACKEND_PORT%} > config.json
     
     REM Update the HTML file to include the config (simplified for batch)
     echo    ✅ Frontend configured for backend port %BACKEND_PORT%
