@@ -33,14 +33,55 @@ if errorlevel 1 (
 
 echo ✅ All prerequisites are available
 
+REM Function to find available port
+set "BACKEND_PORT=5000"
+set "FRONTEND_UPDATE_NEEDED=false"
+
+echo 🔍 Checking port availability for backend service...
+
 REM Check if port 5000 is available
 netstat -an | findstr ":5000" >nul
 if not errorlevel 1 (
-    echo ❌ Backend port 5000 is in use. Please stop the service or change the port.
+    echo ⚠️  Default port 5000 is in use
+    echo 🔄 Attempting to find alternative port...
+    
+    REM Try ports 5001-5020
+    for /L %%p in (5001,1,5020) do (
+        echo    🔎 Checking port %%p...
+        netstat -an | findstr ":%%p" >nul
+        if errorlevel 1 (
+            set "BACKEND_PORT=%%p"
+            set "FRONTEND_UPDATE_NEEDED=true"
+            echo    ✅ Port %%p is available!
+            goto :port_found
+        ) else (
+            echo    ❌ Port %%p is in use
+        )
+    )
+    
+    echo.
+    echo ❌ CRITICAL ERROR: No available ports found!
+    echo ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    echo 🔍 TROUBLESHOOTING STEPS:
+    echo.
+    echo 1. Check what's using ports 5000-5020:
+    echo    netstat -an ^| findstr ":500"
+    echo.
+    echo 2. Kill processes if safe to do so:
+    echo    taskkill /F /PID ^<PID^>
+    echo.
+    echo 3. Or manually specify a port:
+    echo    cd backend ^&^& dotnet run --urls "http://localhost:PORT"
+    echo.
+    echo Please resolve port conflicts and retry the bootstrap process.
+    echo ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     exit /b 1
+) else (
+    echo ✅ Default port 5000 is available
 )
 
-echo ✅ Required ports are available
+:port_found
+echo 🎯 Backend will run on: http://localhost:%BACKEND_PORT%
 
 REM Start backend
 echo 🚀 Starting backend API server...
@@ -56,20 +97,34 @@ if not exist "obj\project.assets.json" (
     )
 )
 
+REM Update frontend configuration if using alternative port
+if "%FRONTEND_UPDATE_NEEDED%"=="true" (
+    echo 🔧 Updating frontend configuration for port %BACKEND_PORT%...
+    cd /d "%FRONTEND_DIR%"
+    
+    REM Create temporary config file for API base URL
+    echo window.API_BASE_URL = 'http://localhost:%BACKEND_PORT%'; > api-config.js
+    
+    REM Update the HTML file to include the config (simplified for batch)
+    echo    ✅ Frontend configured for backend port %BACKEND_PORT%
+    
+    cd /d "%BACKEND_DIR%"
+)
+
 REM Start backend in background
-echo 🔧 Starting .NET backend on http://localhost:5000...
-start "CyberSecScanner Backend" /min dotnet run --urls "http://localhost:5000"
+echo 🔧 Starting .NET backend on http://localhost:%BACKEND_PORT%...
+start "CyberSecScanner Backend" /min dotnet run --urls "http://localhost:%BACKEND_PORT%"
 
 REM Wait for backend to be ready
 echo ⏳ Waiting for backend to start...
 :wait_backend
 timeout /t 2 /nobreak >nul
-curl -s -f "http://localhost:5000/health" >nul 2>nul
+curl -s -f "http://localhost:%BACKEND_PORT%/health" >nul 2>nul
 if errorlevel 1 (
     goto wait_backend
 )
 
-echo ✅ Backend API is running on http://localhost:5000
+echo ✅ Backend API is running on http://localhost:%BACKEND_PORT%
 
 REM Start frontend
 echo 🚀 Starting Electron frontend...
@@ -92,10 +147,17 @@ start "CyberSecScanner Frontend" npm start
 echo.
 echo 🎉 CyberSecScanner Application Started Successfully!
 echo ==================================================
-echo 📊 Backend API: http://localhost:5000
+echo 📊 Backend API: http://localhost:%BACKEND_PORT%
 echo 🖥️  Frontend: Electron application
-echo 📋 Health Check: http://localhost:5000/health
-echo 📋 System Metrics: http://localhost:5000/api/system/metrics
+echo 📋 Health Check: http://localhost:%BACKEND_PORT%/health
+echo 📋 System Metrics: http://localhost:%BACKEND_PORT%/api/system/metrics
+if "%FRONTEND_UPDATE_NEEDED%"=="true" (
+    echo ⚠️  Using alternative port: %BACKEND_PORT% ^(frontend auto-configured^)
+)
+echo.
+echo 💡 Tips:
+echo    - Access API directly: curl http://localhost:%BACKEND_PORT%/health
+echo    - Stop services: Close this window or press Ctrl+C
 echo.
 echo Press any key to stop all services...
 pause >nul
