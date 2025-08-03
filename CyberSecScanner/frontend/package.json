@@ -1,0 +1,44 @@
+{
+  "name": "cybersecscanner-frontend",
+  "version": "1.0.0",
+  "description": "CyberSecScanner - Cross-platform security anomaly scanner frontend",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "keywords": ["cybersecurity", "scanner", "mitre", "attack", "security"],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^25.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "dependencies": {
+    "chart.js": "^4.3.0",
+    "axios": "^1.4.0"
+  },
+  "build": {
+    "appId": "com.cybersecscanner.app",
+    "productName": "CyberSecScanner",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}

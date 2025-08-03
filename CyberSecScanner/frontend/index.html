@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberSecScanner</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <img src="assets/icon.png" alt="CyberSecScanner" class="app-icon">
+                <h1>CyberSecScanner</h1>
+            </div>
+            <div class="header-right">
+                <div class="system-metrics">
+                    <div class="metric">
+                        <span class="metric-label">CPU:</span>
+                        <span id="cpu-usage" class="metric-value">0%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Memory:</span>
+                        <span id="memory-usage" class="metric-value">0%</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <nav class="nav-menu">
+                    <button class="nav-item active" data-view="dashboard">
+                        <span class="nav-icon">📊</span>
+                        Dashboard
+                    </button>
+                    <button class="nav-item" data-view="scanner">
+                        <span class="nav-icon">🔍</span>
+                        Scanner
+                    </button>
+                    <button class="nav-item" data-view="detections">
+                        <span class="nav-icon">🚨</span>
+                        Detections
+                    </button>
+                    <button class="nav-item" data-view="mitre">
+                        <span class="nav-icon">🛡️</span>
+                        MITRE ATT&CK
+                    </button>
+                    <button class="nav-item" data-view="settings">
+                        <span class="nav-icon">⚙️</span>
+                        Settings
+                    </button>
+                </nav>
+            </aside>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Dashboard View -->
+                <div id="dashboard-view" class="view active">
+                    <div class="view-header">
+                        <h2>Security Dashboard</h2>
+                        <button id="new-scan-btn" class="btn btn-primary">
+                            <span class="btn-icon">▶️</span>
+                            Start New Scan
+                        </button>
+                    </div>
+
+                    <div class="dashboard-grid">
+                        <!-- Quick Stats -->
+                        <div class="card stats-card">
+                            <h3>Quick Stats</h3>
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <div class="stat-value" id="total-scans">0</div>
+                                    <div class="stat-label">Total Scans</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value" id="active-scans">0</div>
+                                    <div class="stat-label">Active Scans</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value" id="total-detections">0</div>
+                                    <div class="stat-label">Detections</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value" id="last-scan">Never</div>
+                                    <div class="stat-label">Last Scan</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Performance Chart -->
+                        <div class="card chart-card">
+                            <h3>System Performance</h3>
+                            <canvas id="performance-chart"></canvas>
+                        </div>
+
+                        <!-- Active Scans -->
+                        <div class="card scans-card">
+                            <h3>Active Scans</h3>
+                            <div id="active-scans-list" class="scans-list">
+                                <div class="empty-state">No active scans</div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Detections -->
+                        <div class="card detections-card">
+                            <h3>Recent Detections</h3>
+                            <div id="recent-detections" class="detections-list">
+                                <div class="empty-state">No recent detections</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scanner View -->
+                <div id="scanner-view" class="view">
+                    <div class="view-header">
+                        <h2>Security Scanner</h2>
+                    </div>
+
+                    <div class="scanner-container">
+                        <div class="scan-config-card card">
+                            <h3>Scan Configuration</h3>
+                            <form id="scan-config-form">
+                                <div class="form-group">
+                                    <label>Scan Type:</label>
+                                    <select id="scan-type">
+                                        <option value="full">Full System Scan</option>
+                                        <option value="processes">Process Analysis</option>
+                                        <option value="scheduled-tasks">Scheduled Tasks</option>
+                                        <option value="network">Network Connections</option>
+                                        <option value="registry">Registry Analysis</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>MITRE ATT&CK Techniques:</label>
+                                    <div class="technique-checkboxes">
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" value="T1053" checked>
+                                            T1053 - Scheduled Task/Job
+                                        </label>
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" value="T1055" checked>
+                                            T1055 - Process Injection
+                                        </label>
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" value="T1547" checked>
+                                            T1547 - Boot or Logon Autostart Execution
+                                        </label>
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" value="T1543">
+                                            T1543 - Create or Modify System Process
+                                        </label>
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" value="T1070">
+                                            T1070 - Indicator Removal on Host
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Priority:</label>
+                                    <select id="scan-priority">
+                                        <option value="low">Low</option>
+                                        <option value="normal" selected>Normal</option>
+                                        <option value="high">High</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-actions">
+                                    <button type="submit" class="btn btn-primary">Start Scan</button>
+                                    <button type="button" id="stop-scan-btn" class="btn btn-secondary" disabled>Stop Scan</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="scan-results-card card">
+                            <h3>Scan Results</h3>
+                            <div id="scan-results" class="scan-results">
+                                <div class="empty-state">Start a scan to see results</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detections View -->
+                <div id="detections-view" class="view">
+                    <div class="view-header">
+                        <h2>Security Detections</h2>
+                        <button id="export-detections-btn" class="btn btn-secondary">Export</button>
+                    </div>
+
+                    <div class="detections-container">
+                        <div class="filters-card card">
+                            <h3>Filters</h3>
+                            <div class="filter-controls">
+                                <select id="severity-filter">
+                                    <option value="">All Severities</option>
+                                    <option value="critical">Critical</option>
+                                    <option value="high">High</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="low">Low</option>
+                                </select>
+                                <select id="technique-filter">
+                                    <option value="">All Techniques</option>
+                                    <option value="T1053">T1053 - Scheduled Task/Job</option>
+                                    <option value="T1055">T1055 - Process Injection</option>
+                                    <option value="T1547">T1547 - Boot or Logon Autostart</option>
+                                </select>
+                                <input type="date" id="date-filter" placeholder="Filter by date">
+                            </div>
+                        </div>
+
+                        <div class="detections-table-card card">
+                            <div id="detections-table" class="detections-table">
+                                <div class="empty-state">No detections found</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MITRE ATT&CK View -->
+                <div id="mitre-view" class="view">
+                    <div class="view-header">
+                        <h2>MITRE ATT&CK Framework</h2>
+                    </div>
+
+                    <div class="mitre-container">
+                        <div class="mitre-matrix card">
+                            <h3>Techniques Coverage</h3>
+                            <div id="mitre-matrix" class="matrix-grid">
+                                <!-- MITRE ATT&CK matrix will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings View -->
+                <div id="settings-view" class="view">
+                    <div class="view-header">
+                        <h2>Settings</h2>
+                    </div>
+
+                    <div class="settings-container">
+                        <div class="settings-card card">
+                            <h3>General Settings</h3>
+                            <div class="setting-item">
+                                <label>Auto-start scans on application launch</label>
+                                <input type="checkbox" id="auto-start-scans">
+                            </div>
+                            <div class="setting-item">
+                                <label>Maximum concurrent scans</label>
+                                <input type="number" id="max-concurrent-scans" value="3" min="1" max="10">
+                            </div>
+                            <div class="setting-item">
+                                <label>Scan timeout (minutes)</label>
+                                <input type="number" id="scan-timeout" value="30" min="5" max="120">
+                            </div>
+                        </div>
+
+                        <div class="settings-card card">
+                            <h3>Performance Settings</h3>
+                            <div class="setting-item">
+                                <label>CPU usage threshold (%)</label>
+                                <input type="number" id="cpu-threshold" value="80" min="10" max="100">
+                            </div>
+                            <div class="setting-item">
+                                <label>Memory usage threshold (%)</label>
+                                <input type="number" id="memory-threshold" value="75" min="10" max="100">
+                            </div>
+                        </div>
+
+                        <div class="settings-card card">
+                            <h3>Logging & Telemetry</h3>
+                            <div class="setting-item">
+                                <label>Enable detailed logging</label>
+                                <input type="checkbox" id="detailed-logging" checked>
+                            </div>
+                            <div class="setting-item">
+                                <label>Log file path</label>
+                                <input type="text" id="log-file-path" value="./logs/cybersecscanner.log">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="scripts/app.js"></script>
+    <script src="scripts/dashboard.js"></script>
+    <script src="scripts/scanner.js"></script>
+    <script src="scripts/detections.js"></script>
+</body>
+</html>
