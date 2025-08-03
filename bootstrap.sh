@@ -28,6 +28,41 @@ check_port() {
     return 0
 }
 
+# Function to find an available port within a range
+find_available_port() {
+    local start_port=$1
+    local end_port=$2
+    local max_attempts=${3:-10}
+    
+    echo "🔍 Searching for available port in range $start_port-$end_port..."
+    
+    for ((port=$start_port; port<=$end_port && port<=$((start_port + max_attempts - 1)); port++)); do
+        echo "   🔎 Checking port $port..."
+        if check_port $port; then
+            echo "   ✅ Port $port is available!"
+            echo $port
+            return 0
+        else
+            echo "   ❌ Port $port is in use"
+        fi
+    done
+    
+    echo "   ⚠️  No available ports found in range $start_port-$((start_port + max_attempts - 1))"
+    return 1
+}
+
+# Function to get process info for a port
+get_port_process_info() {
+    local port=$1
+    local process_info=$(lsof -i :$port -t 2>/dev/null | head -1)
+    if [ ! -z "$process_info" ]; then
+        local process_name=$(ps -p $process_info -o comm= 2>/dev/null)
+        echo "Process: $process_name (PID: $process_info)"
+    else
+        echo "Unknown process"
+    fi
+}
+
 # Function to wait for service to be ready
 wait_for_service() {
     local url=$1
@@ -70,15 +105,52 @@ fi
 
 echo "✅ All prerequisites are available"
 
-# Check ports
-echo "🔍 Checking port availability..."
+# Check ports and find available backend port
+echo "🔍 Checking port availability for backend service..."
 
-if ! check_port 5000; then
-    echo "❌ Backend port 5000 is in use. Please stop the service or change the port."
-    exit 1
+BACKEND_PORT=5000
+FRONTEND_UPDATE_NEEDED=false
+
+# First, try the default port 5000
+if check_port $BACKEND_PORT; then
+    echo "✅ Default port $BACKEND_PORT is available"
+else
+    echo "⚠️  Default port $BACKEND_PORT is in use"
+    echo "   $(get_port_process_info $BACKEND_PORT)"
+    
+    echo "🔄 Attempting to find alternative port..."
+    ALTERNATIVE_PORT=$(find_available_port 5001 5020)
+    
+    if [ $? -eq 0 ] && [ ! -z "$ALTERNATIVE_PORT" ]; then
+        BACKEND_PORT=$ALTERNATIVE_PORT
+        FRONTEND_UPDATE_NEEDED=true
+        echo "✅ Will use alternative port: $BACKEND_PORT"
+        echo "⚠️  Note: Frontend will be automatically configured for port $BACKEND_PORT"
+    else
+        echo ""
+        echo "❌ CRITICAL ERROR: No available ports found!"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "🔍 TROUBLESHOOTING STEPS:"
+        echo ""
+        echo "1. Check what's using ports 5000-5020:"
+        echo "   lsof -i :5000-5020"
+        echo ""
+        echo "2. Kill processes if safe to do so:"
+        echo "   sudo kill -9 <PID>"
+        echo ""
+        echo "3. Or manually specify a port:"
+        echo "   cd backend && dotnet run --urls \"http://localhost:PORT\""
+        echo ""
+        echo "4. Check for system services using these ports:"
+        echo "   sudo netstat -tulpn | grep :500"
+        echo ""
+        echo "Please resolve port conflicts and retry the bootstrap process."
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        exit 1
+    fi
 fi
 
-echo "✅ Required ports are available"
+echo "🎯 Backend will run on: http://localhost:$BACKEND_PORT"
 
 # Start backend
 echo "🚀 Starting backend API server..."
@@ -90,9 +162,26 @@ if [ ! -d "obj" ] || [ ! -f "obj/project.assets.json" ]; then
     dotnet restore
 fi
 
+# Update frontend configuration if using alternative port
+if [ "$FRONTEND_UPDATE_NEEDED" = true ]; then
+    echo "🔧 Updating frontend configuration for port $BACKEND_PORT..."
+    cd "$FRONTEND_DIR"
+    
+    # Create temporary config file for API base URL
+    echo "window.API_BASE_URL = 'http://localhost:$BACKEND_PORT';" > api-config.js
+    
+    # Update the HTML file to include the config
+    if ! grep -q "api-config.js" index.html; then
+        sed -i.bak 's|</head>|    <script src="api-config.js"></script>\n</head>|' index.html
+        echo "   ✅ Frontend configured for backend port $BACKEND_PORT"
+    fi
+    
+    cd "$BACKEND_DIR"
+fi
+
 # Start backend in background
-echo "🔧 Starting .NET backend on http://localhost:5000..."
-dotnet run --urls "http://localhost:5000" > /tmp/cybersec-backend.log 2>&1 &
+echo "🔧 Starting .NET backend on http://localhost:$BACKEND_PORT..."
+dotnet run --urls "http://localhost:$BACKEND_PORT" > /tmp/cybersec-backend.log 2>&1 &
 BACKEND_PID=$!
 
 # Function to cleanup on exit
@@ -104,19 +193,33 @@ cleanup() {
     if [ ! -z "$FRONTEND_PID" ]; then
         kill $FRONTEND_PID 2>/dev/null || true
     fi
+    
+    # Cleanup temporary frontend config if created
+    if [ "$FRONTEND_UPDATE_NEEDED" = true ]; then
+        echo "🔧 Cleaning up temporary frontend configuration..."
+        cd "$FRONTEND_DIR"
+        rm -f api-config.js
+        if [ -f index.html.bak ]; then
+            mv index.html.bak index.html
+            echo "   ✅ Frontend configuration restored"
+        fi
+    fi
 }
 
 # Set trap to cleanup on script exit
 trap cleanup EXIT INT TERM
 
 # Wait for backend to be ready
-if ! wait_for_service "http://localhost:5000/health" 30; then
+echo "⏳ Waiting for backend service to be ready..."
+if ! wait_for_service "http://localhost:$BACKEND_PORT/health" 30; then
     echo "❌ Backend failed to start. Check logs:"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     tail -20 /tmp/cybersec-backend.log
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     exit 1
 fi
 
-echo "✅ Backend API is running on http://localhost:5000"
+echo "✅ Backend API is running on http://localhost:$BACKEND_PORT"
 
 # Start frontend
 echo "🚀 Starting Electron frontend..."
@@ -139,14 +242,22 @@ echo "✅ Frontend application is starting..."
 echo ""
 echo "🎉 CyberSecScanner Application Started Successfully!"
 echo "=================================================="
-echo "📊 Backend API: http://localhost:5000"
+echo "📊 Backend API: http://localhost:$BACKEND_PORT"
 echo "🖥️  Frontend: Electron application"
-echo "📋 Health Check: http://localhost:5000/health"
-echo "📋 System Metrics: http://localhost:5000/api/system/metrics"
+echo "📋 Health Check: http://localhost:$BACKEND_PORT/health"
+echo "📋 System Metrics: http://localhost:$BACKEND_PORT/api/system/metrics"
+if [ "$FRONTEND_UPDATE_NEEDED" = true ]; then
+    echo "⚠️  Using alternative port: $BACKEND_PORT (frontend auto-configured)"
+fi
 echo ""
 echo "📝 Logs:"
 echo "   Backend: /tmp/cybersec-backend.log"
 echo "   Frontend: /tmp/cybersec-frontend.log"
+echo ""
+echo "💡 Tips:"
+echo "   - Access API directly: curl http://localhost:$BACKEND_PORT/health"
+echo "   - View real-time logs: tail -f /tmp/cybersec-backend.log"
+echo "   - Stop services: Press Ctrl+C"
 echo ""
 echo "Press Ctrl+C to stop all services"
 
