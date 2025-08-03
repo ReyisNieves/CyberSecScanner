@@ -1,7 +1,23 @@
-const { ipcRenderer } = require('electron');
+// Backend API configuration - will be dynamically set by bootstrap
+let API_BASE_URL = 'http://localhost:5000/api';
 
-// Backend API configuration
-const API_BASE_URL = 'http://localhost:5000/api';
+// Dynamic port configuration from config file
+function loadApiConfig() {
+    try {
+        const config = window.electronAPI?.loadConfig();
+        if (config && config.apiPort) {
+            API_BASE_URL = `http://localhost:${config.apiPort}/api`;
+            console.log(`🔗 API configured for port: ${config.apiPort}`);
+        }
+    } catch (error) {
+        console.warn('⚠️ Could not load API config, using default port 5000:', error.message);
+    }
+}
+
+// Load config when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    loadApiConfig();
+});
 
 class CyberSecScannerApp {
     constructor() {
