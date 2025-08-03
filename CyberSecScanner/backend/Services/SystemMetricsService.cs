@@ -1,7 +1,7 @@
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using CyberSecScanner.Backend.Models;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 
 namespace CyberSecScanner.Backend.Services;
 
@@ -29,11 +29,13 @@ public class SystemMetricsService : ISystemMetricsService
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
+#if WINDOWS
                 _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
                 _memoryCounter = new PerformanceCounter("Memory", "Available MBytes");
                 
                 // Initial read to initialize counters
                 _cpuCounter.NextValue();
+#endif
             }
         }
         catch (Exception ex)
@@ -86,24 +88,27 @@ public class SystemMetricsService : ISystemMetricsService
 
         try
         {
-            if (_cpuCounter != null)
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                metrics.CpuUsage = Math.Round(_cpuCounter.NextValue(), 2);
-            }
-
-            if (_memoryCounter != null)
-            {
-                var availableMemoryMB = _memoryCounter.NextValue();
-                // Get total memory from system info
-                var totalMemoryMB = GetTotalMemoryMB();
-                
-                metrics.MemoryAvailable = (long)(availableMemoryMB * 1024 * 1024); // Convert to bytes
-                metrics.MemoryTotal = totalMemoryMB * 1024 * 1024; // Convert to bytes
-                
-                if (metrics.MemoryTotal > 0)
+                if (_cpuCounter != null)
                 {
-                    var usedMemory = metrics.MemoryTotal - metrics.MemoryAvailable;
-                    metrics.MemoryUsage = Math.Round((double)usedMemory / metrics.MemoryTotal * 100, 2);
+                    metrics.CpuUsage = Math.Round(_cpuCounter.NextValue(), 2);
+                }
+
+                if (_memoryCounter != null)
+                {
+                    var availableMemoryMB = _memoryCounter.NextValue();
+                    // Get total memory from system info
+                    var totalMemoryMB = GetTotalMemoryMB();
+                    
+                    metrics.MemoryAvailable = (long)(availableMemoryMB * 1024 * 1024); // Convert to bytes
+                    metrics.MemoryTotal = totalMemoryMB * 1024 * 1024; // Convert to bytes
+                    
+                    if (metrics.MemoryTotal > 0)
+                    {
+                        var usedMemory = metrics.MemoryTotal - metrics.MemoryAvailable;
+                        metrics.MemoryUsage = Math.Round((double)usedMemory / metrics.MemoryTotal * 100, 2);
+                    }
                 }
             }
         }
@@ -428,7 +433,10 @@ public class SystemMetricsService : ISystemMetricsService
 
     public void Dispose()
     {
-        _cpuCounter?.Dispose();
-        _memoryCounter?.Dispose();
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            _cpuCounter?.Dispose();
+            _memoryCounter?.Dispose();
+        }
     }
 }
