@@ -1,6 +1,8 @@
 using CyberSecScanner.Backend.Services;
 using CyberSecScanner.Backend.Models;
 using Microsoft.Extensions.Logging;
+using MediatR;
+using Moq;
 using System;
 using System.Threading.Tasks;
 
@@ -22,7 +24,9 @@ namespace CyberSecScanner.Backend.Tests
         {
             // Arrange
             var logger = new MockLogger<ScanEngine>();
-            var scanEngine = new ScanEngine(logger);
+            var mediator = new Mock<IMediator>();
+            var systemMetrics = new Mock<ISystemMetricsService>();
+            var scanEngine = new ScanEngine(logger, mediator.Object, systemMetrics.Object);
             var request = new ScanRequest
             {
                 Type = ScanType.Processes,
@@ -75,7 +79,9 @@ namespace CyberSecScanner.Backend.Tests
         {
             // Arrange
             var logger = new MockLogger<ScanEngine>();
-            var scanEngine = new ScanEngine(logger);
+            var mediator = new Mock<IMediator>();
+            var systemMetrics = new Mock<ISystemMetricsService>();
+            var scanEngine = new ScanEngine(logger, mediator.Object, systemMetrics.Object);
             var request = new ScanRequest
             {
                 Type = ScanType.Processes,
@@ -128,7 +134,7 @@ namespace CyberSecScanner.Backend.Tests
     /// </summary>
     public class MockLogger<T> : ILogger<T>
     {
-        public IDisposable BeginScope<TState>(TState state) => null!;
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
         public bool IsEnabled(LogLevel logLevel) => true;
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
